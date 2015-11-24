@@ -1,0 +1,3 @@
+#!/bin/bash
+cp -r /projects/cs345.tdillig/PA4/ .
+echo "CS345 Programming Assignment 4 copied" 
