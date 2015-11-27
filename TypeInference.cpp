@@ -38,13 +38,13 @@ TypeInference::TypeInference(Expression* e)
 // AstExpressionList
 // AstIdentifierE
 // AstIdentifierList
-// AstInt
+// AstInt **DONE
 // AstLambda
 // AstLet
 // AstList
 // AstNil
 // AstRead
-// AstString
+// AstString**DONE
 // AstUnOp
 //		case !:
 //		case #:
@@ -190,6 +190,24 @@ Type* TypeInference::eval(Expression* e)
 	
 	// Unary Operations
 	
+	
+	// Conditional
+	if( etype == AST_BRANCH)
+	{
+		AstBranch *conditional = static_cast<AstBranch*>(e);
+		Type *predicate = eval(conditional->get_pred());
+		
+		if(predicate != integer) // predicate can only be an integer
+			assert(predicate == integer);
+		
+		Type *exp1 = eval(conditional->get_then_exp());
+		Type *exp2 = eval(conditional->get_else_exp());
+
+		if(exp1 != exp2)		// then and else should be same type
+			assert(exp1 == exp2);
+		
+		return exp1;
+	}
 
 }
 
