@@ -187,6 +187,9 @@ Type* TypeInference::eval(Expression* e)
 		}
 
 	}
+	
+	// Unary Operations
+	
 
 }
 
