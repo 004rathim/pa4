@@ -20,6 +20,8 @@ using namespace std;
     static ConstantType* make(const string& name);
     virtual bool operator<(const Type& other);
     virtual string to_string();
+	bool head;
+	bool tail;
     
     
  };
