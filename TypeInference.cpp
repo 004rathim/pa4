@@ -34,17 +34,17 @@ TypeInference::TypeInference(Expression* e)
 //      case GT: return ">"; **DONE
 //      case GEQ: return ">="; **DONE
 //      case CONS: return "@";
-// AstBranch
+// AstBranch **DONE
 // AstExpressionList
 // AstIdentifierE
 // AstIdentifierList
-// AstInt
+// AstInt **DONE
 // AstLambda
 // AstLet
 // AstList
 // AstNil
 // AstRead
-// AstString
+// AstString**DONE
 // AstUnOp
 //		case !:
 //		case #:
@@ -58,6 +58,8 @@ Type* TypeInference::eval(Expression* e)
 
 	ConstantType *integer =  ConstantType::make("Int");
 	ConstantType *string =  ConstantType::make("String");
+	ConstantType *listInteger =  ConstantType::make("ListInt");
+	ConstantType *listString =  ConstantType::make("ListString");
 	expression_type etype = e->get_type();
 
 	// Base Cases
@@ -185,7 +187,93 @@ Type* TypeInference::eval(Expression* e)
 			else
 				assert(btype !=  GEQ);
 		}
+		else
+		if( btype ==  CONS) // accepts only integers
+		{	
+			if( firstType == integer && secondType == integer )	// if both int then return a list int
+			{	
+				listInteger->head = false;
+				listInteger->tail = false;
+				return listInteger;
+			}
+			else
+			if( firstType == integer && secondType == listInteger )	// if one of them are listInt then set the corresponding boolean true
+			{	
+				listInteger->head = false;
+				listInteger->tail = true;
+				return listInteger;
+			}
+			else
+			if( firstType == listInteger && secondType == integer )
+			{	
+				listInteger->head = true;
+				listInteger->tail = false;
+				return listInteger;
+			}
+			else
+			if( firstType == listInteger && secondType == listInteger )
+			{	
+				listInteger->head = true;
+				listInteger->tail = true;
+				return listInteger;
+			}
+			else
+			if( firstType == string && secondType == string )		// do same for strings
+			{	
+				listString->head = false;
+				listString->tail = false;
+				return listString;
+			}
+			else
+			if( firstType == string && secondType == listString )
+			{	
+				listString->head = false;
+				listString->tail = true;
+				return listString;
+			}
+			else
+			if( firstType == listString && secondType == string )
+			{	
+				listString->head = true;
+				listString->tail = false;
+				return listString;
+			}
+			else
+			if( firstType == listString && secondType == listString )
+			{	
+				listString->head = true;
+				listString->tail = true;
+				return listString;
+			}
+			else
+				assert(btype !=  CONS);
+		}
 
+	}
+	
+	// Unary Operations
+	if(etype == AST_UNOP)
+	{
+		
+		
+	}
+	
+	// Conditional
+	if( etype == AST_BRANCH)
+	{
+		AstBranch *conditional = static_cast<AstBranch*>(e);
+		Type *predicate = eval(conditional->get_pred());
+		
+		if(predicate != integer) // predicate can only be an integer
+			assert(predicate == integer);
+		
+		Type *exp1 = eval(conditional->get_then_exp());
+		Type *exp2 = eval(conditional->get_else_exp());
+
+		if(exp1 != exp2)		// then and else should be same type
+			assert(exp1 == exp2);
+		
+		return exp1;
 	}
 
 }
