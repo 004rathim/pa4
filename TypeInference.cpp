@@ -105,7 +105,7 @@ Type* TypeInference::eval(Expression* e)
 		if(l->get_val()->get_type() == AST_LAMBDA)
 		{
 			Type *letType = eval(l->get_body());
-			if(letType == ConstantType::make("Int"))
+			if(letType == integer)
 			{
 				AstInt* temp = AstInt::make(1);
 				sym.add(l->get_id(), temp);
@@ -137,6 +137,47 @@ Type* TypeInference::eval(Expression* e)
 				return bodyType;
 	//		else
 	//			assert(bodyType == letType);
+		}
+	}
+
+	if(etype == AST_EXPRESSION_LIST)
+	{
+		AstExpressionList* list = static_cast<AstExpressionList*>(e);
+		vector<Expression*> vect = list->get_expressions();
+
+		if(lambIDs.size()+1 < vect.size())
+		{
+			lambAssign.push_back(vect[lambIDs.size()+1]);
+		}
+		
+		Type* lambType = eval(vect[0]);
+		return lambType;
+	}
+
+	if(etype == AST_LAMBDA)
+	{
+		AstLambda* lambda = static_cast<AstLambda*>(e);
+		lambIDs.push_back(lambda->get_formal());
+		AstIdentifier* temp;
+
+		if(lambda->get_formal()->get_type() == AST_IDENTIFIER)
+		{
+			temp = static_cast<AstIdentifier*>(lambda->get_formal());
+		}
+
+		if(lambAssign.size() > 0 || lambIDs.size() > 0)
+		{
+			Expression* exp = lambAssign.back();
+			sym.add(temp, exp);
+			Type *lambType = eval(lambda->get_body());
+			return lambType;
+		}
+		else
+		{
+			vector<Type*> val;
+			val.push_back(VariableType::make("x"));
+			Type *func = FunctionType::make("Lambda", val);
+			return func;
 		}
 	}
 
