@@ -89,6 +89,15 @@ Type* TypeInference::eval(Expression* e)
 		return VariableType::make("x");
 	}
 
+	if(etype == AST_READ)
+	{
+		AstRead *r = static_cast<AstRead*>(e);
+		if(r->read_integer())
+			return integer;
+		else
+			return string;
+	}
+
 	if(etype == AST_LET)
 	{
 		AstLet *l = static_cast<AstLet*>(e);
