@@ -64,10 +64,10 @@ Type* TypeInference::eval(Expression* e)
 
 	// Base Cases
 	if(e->get_type()== AST_INT){
-		return ConstantType::make("Int");
+		return integer;
 	}
 	if(e->get_type()== AST_STRING){
-		return ConstantType::make("String");
+		return string;
 	}
 	if(e->get_type()== AST_IDENTIFIER){
 		return VariableType::make("x");
@@ -188,7 +188,7 @@ Type* TypeInference::eval(Expression* e)
 				assert(btype !=  GEQ);
 		}
 		else
-		if( btype ==  CONS) // accepts only integers
+		if( btype ==  CONS) // accepts only integers (and strings? -MR)
 		{	
 			if( firstType == integer && secondType == integer )	// if both int then return a list int
 			{	
@@ -253,9 +253,64 @@ Type* TypeInference::eval(Expression* e)
 	
 	// Unary Operations
 	if(etype == AST_UNOP)
-	{
-		
-		
+	{	
+		AstUnOp *un = static_cast<AstUnOp*>(e);
+		unop_type utype = un->get_unop_type();
+		Expression *exp = un->get_expression();
+		Type *type = eval(exp);
+
+		if(utype == ISNIL)
+		{
+			return integer;
+		}
+		else
+		if(utype == PRINT)
+		{
+			return integer;
+		}
+		else
+		if(utype == HD)
+		{
+			cout << type->to_string() << endl;
+			if(type == listInteger || type == listString)
+			{
+				//TODO: seg fault on listHead?
+				AstList* list = static_cast<AstList*>(exp);
+				Expression* listHead = list->get_hd();
+				cout << listHead->to_value() << endl;
+				Type* headType = eval(listHead);
+				return headType;
+			}
+			else
+			if(type == integer || string)
+			{
+				return type;
+			}
+			else
+				assert(utype != HD);
+		}
+		else
+		if(utype == TL)
+		{
+			if(type == listInteger || type == listString)
+			{
+				//TODO: get_tl returning wrong value
+				AstList* list = static_cast<AstList*>(exp);
+				Expression* listTail = list->get_tl();
+				cout << listTail->to_value() << endl;
+				Type* tailType = eval(listTail);
+				return tailType;
+			}
+			else
+			if(type == integer || string)
+			{
+				return integer; //TODO: what is type of Nil?
+						//we need a base case for this?
+			}
+			else
+				assert(utype != TL);
+		}
+
 	}
 	
 	// Conditional
