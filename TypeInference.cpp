@@ -5,10 +5,16 @@
 #include "ast/expression.h"
 #include "TypeInference.h"
 
+SymbolTable sym;
+vector<Expression*> lambIDs;
+vector<Expression*> lambAssign;
 
 TypeInference::TypeInference(Expression* e)
 {
 	this->program = e;
+	lambIDs = vector<Expression*>();
+	lambAssign = vector<Expression*>();
+	sym.push();	
 	Type* value = eval(program);
 	cout << value->to_string() << endl;
 
@@ -54,8 +60,7 @@ TypeInference::TypeInference(Expression* e)
 
 Type* TypeInference::eval(Expression* e)
 {
-
-
+//TODO: need to look over my use of sym push and pop
 	ConstantType *integer =  ConstantType::make("Int");
 	ConstantType *string =  ConstantType::make("String");
 	ConstantType *listInteger =  ConstantType::make("ListInt");
@@ -63,6 +68,10 @@ Type* TypeInference::eval(Expression* e)
 	expression_type etype = e->get_type();
 
 	// Base Cases
+	if(e->get_type() == AST_NIL)
+	{
+		return integer; //TODO: is this correct?
+	}
 	if(e->get_type()== AST_INT){
 		return integer;
 	}
@@ -70,7 +79,56 @@ Type* TypeInference::eval(Expression* e)
 		return string;
 	}
 	if(e->get_type()== AST_IDENTIFIER){
+		AstIdentifier* t = static_cast<AstIdentifier*>(e);
+		Expression* id = sym.find(t);
+		if(id != NULL)
+		{
+			Type* idType = eval(id);
+			return idType;
+		}
 		return VariableType::make("x");
+	}
+
+	if(etype == AST_LET)
+	{
+		AstLet *l = static_cast<AstLet*>(e);
+		//TODO: not sure about the lambda part
+		if(l->get_val()->get_type() == AST_LAMBDA)
+		{
+			Type *letType = eval(l->get_body());
+			if(letType == ConstantType::make("Int"))
+			{
+				AstInt* temp = AstInt::make(1);
+				sym.add(l->get_id(), temp);
+			}	
+			else
+			{
+				AstString* temp = AstString::make("1");
+				sym.add(l->get_id(), temp);
+			}
+			Type *bodyType = eval(l->get_val());
+			return bodyType;
+		}
+		else
+		{
+			Type *letType = eval(l->get_val());
+			if(letType == integer)
+			{
+				AstInt* temp = AstInt::make(1);
+				sym.add(l->get_id(), temp);
+			}
+			else
+			{
+				AstString* temp = AstString::make("1");
+				sym.add(l->get_id(), temp);
+			}
+			
+			Type *bodyType = eval(l->get_body());
+	//		if(bodyType == letType) //TODO: shouldn't check this, right?
+				return bodyType;
+	//		else
+	//			assert(bodyType == letType);
+		}
 	}
 
 	// Binary Operations
@@ -304,8 +362,7 @@ Type* TypeInference::eval(Expression* e)
 			else
 			if(type == integer || string)
 			{
-				return integer; //TODO: what is type of Nil?
-						//we need a base case for this?
+				return eval(AstNil::make()); 
 			}
 			else
 				assert(utype != TL);
