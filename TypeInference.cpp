@@ -66,6 +66,7 @@ Type* TypeInference::eval(Expression* e)
 	ConstantType *string =  ConstantType::make("String");
 	ConstantType *list =  ConstantType::make("List");
 	ConstantType *nil = ConstantType::make("Nil");
+	ConstantType *lambda = ConstantType::make("Lambda");
 	expression_type etype = e->get_type();
 	
 
@@ -100,46 +101,58 @@ Type* TypeInference::eval(Expression* e)
 			return string;
 	}
 
+
+
+
 	if(etype == AST_LET)
 	{
-		AstLet *l = static_cast<AstLet*>(e);
-		//TODO: not sure about the lambda part
-		if(l->get_val()->get_type() == AST_LAMBDA)
+		AstLet *let = static_cast<AstLet*>(e);
+		AstIdentifier *id = let->get_id();
+		Expression *val = let->get_val();
+		Expression *body = let->get_body();
+		
+		sym.push();
+
+		Type *letIdType = eval(val);
+		if(letIdType == integer)
 		{
-			Type *letType = eval(l->get_body());
-			if(letType == integer)
-			{
-				AstInt* temp = AstInt::make(1);
-				sym.add(l->get_id(), temp);
-			}	
-			else
-			{
-				AstString* temp = AstString::make("1");
-				sym.add(l->get_id(), temp);
-			}
-			Type *bodyType = eval(l->get_val());
-			return bodyType;
+			AstInt* temp = AstInt::make(1);
+			sym.add(id, temp);
 		}
 		else
+		if(letIdType == string)
 		{
-			Type *letType = eval(l->get_val());
-			if(letType == integer)
-			{
-				AstInt* temp = AstInt::make(1);
-				sym.add(l->get_id(), temp);
-			}
-			else
-			{
-				AstString* temp = AstString::make("1");
-				sym.add(l->get_id(), temp);
-			}
-			
-			Type *bodyType = eval(l->get_body());
-	//		if(bodyType == letType) //TODO: shouldn't check this, right?
-				return bodyType;
-	//		else
-	//			assert(bodyType == letType);
+			AstString* temp = AstString::make("1");
+			sym.add(id, temp);
 		}
+		else
+		if(letIdType == list)
+		{
+			ConstantType *temp = static_cast<ConstantType*> (letIdType);
+			AstList* tempList = static_cast<AstList*> (AstList::make(temp->listInfo->head, temp->listInfo->tail) );
+			sym.add(id, tempList);
+		}
+		else
+		if(letIdType == lambda)
+		{
+			ConstantType *temp = static_cast<ConstantType*> (letIdType); 
+			AstLambda* tempLambda = AstLambda::make(  temp->formal , temp->body );
+			sym.add(id, tempLambda);
+		}
+		else
+		if(letIdType == nil)
+		{
+			AstNil* temp = AstNil::make();
+			sym.add(id, temp);
+		} 
+		else
+			assert(false);
+	//sym.pop();
+		Type *letBodyType = eval(body);
+		
+
+		return letBodyType;
+		
 	}
 
 	if(etype == AST_EXPRESSION_LIST)
@@ -149,7 +162,13 @@ Type* TypeInference::eval(Expression* e)
 		if(expList.size() == 1)
 			return eval(expList[0]);
 		
-		AstLambda* lambda = static_cast<AstLambda*>(expList[0]);
+		AstLambda* lambda;
+		if(expList[0] -> get_type() == AST_IDENTIFIER)
+			lambda = static_cast<AstLambda*>(sym.find(static_cast<AstIdentifier*>(expList[0]) ));
+		else		
+			lambda = static_cast<AstLambda*>(expList[0]);
+		
+			 
 		AstIdentifier *id = lambda->get_formal();
 		Expression* lambdaBody = lambda->get_body();
 		Expression* lambdasubbed =  lambdaBody->substitute(id, expList[1]);
@@ -180,18 +199,25 @@ Type* TypeInference::eval(Expression* e)
 
 	if(etype == AST_LAMBDA)
 	{
-		AstLambda* lambda = static_cast<AstLambda*>(e);
-		AstIdentifier *id = lambda->get_formal();
-		Expression* lambdaBody = lambda->get_body();
+		AstLambda* lambda2 = static_cast<AstLambda*>(e);
+		lambda->formal = lambda2->get_formal();
+		lambda->body = lambda2->get_body();
 		
-		Type *typeId = eval(id);
-		Type *typeLambdaBody = eval(lambdaBody);
+		return lambda;
 		
-		vector<Type*> v2;
-		v2.push_back(typeId); // ConstantType::make("Int");
-		v2.push_back(typeLambdaBody); // ConstantType::make("String");
- 		Type* typeLambda = FunctionType::make("lambda", v2);
- 		return typeLambda;
+		//
+		// AstLambda* lambda = static_cast<AstLambda*>(e);
+		// AstIdentifier *id = lambda->get_formal();
+		// Expression* lambdaBody = lambda->get_body();
+		
+		// Type *typeId = eval(id);
+		// Type *typeLambdaBody = eval(lambdaBody);
+		
+		// vector<Type*> v2;
+		// v2.push_back(typeId); // ConstantType::make("Int");
+		// v2.push_back(typeLambdaBody); // ConstantType::make("String");
+ 	// 	Type* typeLambda = FunctionType::make("lambda", v2);
+ 	// 	return typeLambda;
 	}
 
 	// Binary Operations
@@ -203,10 +229,11 @@ Type* TypeInference::eval(Expression* e)
 		Type *firstType = eval(first);
 		Expression *second = bin->get_second();
 		Type *secondType = eval(second);
+		cout << "first: " <<  first->to_string() << " second: " << second->to_string() << endl;
  
 		if( btype ==  PLUS)   // accepts integers and strings
 		{	
-			cout << "type: " << firstType->to_string() << endl;
+		//	cout << "type: " << firstType->to_string() << endl;
 					
 			if(firstType == integer && secondType == integer)
 				return integer;

@@ -35,5 +35,8 @@ Expression *tail;
 	struct node *listInfo;
 
  
+AstIdentifier* formal;
+Expression* body;
+
  };
  #endif /* CONSTANT_TYPE_H_ */
