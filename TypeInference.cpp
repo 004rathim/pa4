@@ -4,6 +4,7 @@
 #include "ast/FunctionType.h"
 #include "ast/expression.h"
 #include "TypeInference.h"
+#include <stdlib.h>
 
 SymbolTable sym;
 vector<Expression*> lambIDs;
@@ -63,22 +64,23 @@ Type* TypeInference::eval(Expression* e)
 //TODO: need to look over my use of sym push and pop
 	ConstantType *integer =  ConstantType::make("Int");
 	ConstantType *string =  ConstantType::make("String");
-	ConstantType *listInteger =  ConstantType::make("ListInt");
-	ConstantType *listString =  ConstantType::make("ListString");
+	ConstantType *list =  ConstantType::make("List");
+	ConstantType *nil = ConstantType::make("Nil");
 	expression_type etype = e->get_type();
+	
 
 	// Base Cases
-	if(e->get_type() == AST_NIL)
+	if(etype == AST_NIL)
 	{
-		return integer; //TODO: is this correct?
+		return nil; 
 	}
-	if(e->get_type()== AST_INT){
+	if(etype == AST_INT){
 		return integer;
 	}
-	if(e->get_type()== AST_STRING){
+	if(etype == AST_STRING){
 		return string;
 	}
-	if(e->get_type()== AST_IDENTIFIER){
+	if(etype == AST_IDENTIFIER){
 		AstIdentifier* t = static_cast<AstIdentifier*>(e);
 		Expression* id = sym.find(t);
 		if(id != NULL)
@@ -190,7 +192,7 @@ Type* TypeInference::eval(Expression* e)
 		Type *firstType = eval(first);
 		Expression *second = bin->get_second();
 		Type *secondType = eval(second);
-
+ 
 		if( btype ==  PLUS)   // accepts integers and strings
 		{	
 			if(firstType == integer && secondType == integer)
@@ -297,64 +299,16 @@ Type* TypeInference::eval(Expression* e)
 		}
 		else
 		if( btype ==  CONS) // accepts only integers (and strings? -MR)
-		{	
-			if( firstType == integer && secondType == integer )	// if both int then return a list int
-			{	
-				listInteger->head = false;
-				listInteger->tail = false;
-				return listInteger;
-			}
-			else
-			if( firstType == integer && secondType == listInteger )	// if one of them are listInt then set the corresponding boolean true
-			{	
-				listInteger->head = false;
-				listInteger->tail = true;
-				return listInteger;
-			}
-			else
-			if( firstType == listInteger && secondType == integer )
-			{	
-				listInteger->head = true;
-				listInteger->tail = false;
-				return listInteger;
-			}
-			else
-			if( firstType == listInteger && secondType == listInteger )
-			{	
-				listInteger->head = true;
-				listInteger->tail = true;
-				return listInteger;
-			}
-			else
-			if( firstType == string && secondType == string )		// do same for strings
-			{	
-				listString->head = false;
-				listString->tail = false;
-				return listString;
-			}
-			else
-			if( firstType == string && secondType == listString )
-			{	
-				listString->head = false;
-				listString->tail = true;
-				return listString;
-			}
-			else
-			if( firstType == listString && secondType == string )
-			{	
-				listString->head = true;
-				listString->tail = false;
-				return listString;
-			}
-			else
-			if( firstType == listString && secondType == listString )
-			{	
-				listString->head = true;
-				listString->tail = true;
-				return listString;
-			}
-			else
-				assert(btype !=  CONS);
+		{				
+			list->listInfo = new ConstantType::node; //TODO: when to delete?
+			list->listInfo->head = bin->get_first();
+			//cout << "insode cons, head: " << list->listInfo->head->to_string() << endl;
+			list->listInfo->tail = bin->get_second();
+			
+			cout << "making a new list head: " << list->listInfo->head->to_string() << " tail: " << list->listInfo->tail->to_string() << endl;
+			if(secondType == nil)
+				return firstType;
+			return list;
 		}
 
 	}
@@ -379,43 +333,65 @@ Type* TypeInference::eval(Expression* e)
 		else
 		if(utype == HD)
 		{
-			cout << type->to_string() << endl;
-			if(type == listInteger || type == listString)
-			{
-				//TODO: seg fault on listHead?
-				AstList* list = static_cast<AstList*>(exp);
-				Expression* listHead = list->get_hd();
-				cout << listHead->to_value() << endl;
-				Type* headType = eval(listHead);
-				return headType;
-			}
-			else
-			if(type == integer || string)
-			{
+			if(type != list)
 				return type;
-			}
-			else
-				assert(utype != HD);
+			
+			ConstantType *tempList = static_cast<ConstantType*>(type);
+			cout << "will get head of this expression: " << exp->to_string() << endl; 
+			cout << "head: " << tempList->listInfo->head->to_string() << endl;
+			
+			return eval(tempList->listInfo->head);
+		//	else
+		//		assert(utype != HD);
 		}
 		else
 		if(utype == TL)
 		{
+			if(type != list)
+				return nil;
+			
+			ConstantType *tempList = static_cast<ConstantType*>(type);
+			
+			 //Type *tailType = tempList->listInfo->tailType;
+			
+		//	cout << exp->to_string() << endl;
+						
+		//	if(tailType == integer || tailType == string)
+		//	{
+		//		return tailType;
+		//	}
+		//	else
+		//	{
+			//	ConstantType *tailList = ConstantType::make("List");
+			//	cout << "test" << endl;
+			//	tailList->listInfo = tempList->listInfo->tailInfo;	
+			return eval(tempList->listInfo->tail);
+		//	}
+			
+			/*ConstantType *tempList = static_cast<ConstantType*>(type);
+			
+			cout << "unop exp: " << exp->to_string() << endl;
+			
 			if(type == listInteger || type == listString)
 			{
 				//TODO: get_tl returning wrong value
-				AstList* list = static_cast<AstList*>(exp);
-				Expression* listTail = list->get_tl();
-				cout << listTail->to_value() << endl;
-				Type* tailType = eval(listTail);
-				return tailType;
+				// AstList* list = static_cast<AstList*>(exp);
+				// Expression* listTail = list->get_tl();
+				// cout << listTail->to_value() << endl;
+				// Type* tailType = eval(listTail);
+				// return tailType;
+				// if(tempList->tail == false)
+				// 	return type == listInteger ? integer : string;
+				// if(tempList->tail == true)
+				// 	return type == listInteger ? listInteger : listString;
 			}
 			else
-			if(type == integer || string)
+			if(type == integer || type == string)
 			{
 				return eval(AstNil::make()); 
 			}
 			else
-				assert(utype != TL);
+				assert(utype != TL);*/
 		}
 
 	}
