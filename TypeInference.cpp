@@ -40,23 +40,23 @@ TypeInference::TypeInference(Expression* e)
 //      case LEQ: return "<="; **DONE
 //      case GT: return ">"; **DONE
 //      case GEQ: return ">="; **DONE
-//      case CONS: return "@";
+//      case CONS: return "@"; **DONE
 // AstBranch **DONE
-// AstExpressionList
-// AstIdentifierE
+// AstExpressionList 
+// AstIdentifierE **DONE
 // AstIdentifierList
+// AstLet 
+// AstLambda **DONE
 // AstInt **DONE
-// AstLambda
-// AstLet
-// AstList
-// AstNil
-// AstRead
+// AstList**DONE
+// AstNil**DONE
+// AstRead**DONE
 // AstString**DONE
 // AstUnOp
-//		case !:
-//		case #:
-//		case IsNil:
-//		case print:
+//		case !:**DONE
+//		case #:**DONE
+//		case IsNil:**DONE
+//		case print:**DONE
 // Expression
 
 Type* TypeInference::eval(Expression* e)
@@ -88,7 +88,7 @@ Type* TypeInference::eval(Expression* e)
 			Type* idType = eval(id);
 			return idType;
 		}
-		return VariableType::make("x");
+		return VariableType::make(t->to_string().substr(0, t->to_string().size()-1) );
 	}
 
 	if(etype == AST_READ)
@@ -144,43 +144,54 @@ Type* TypeInference::eval(Expression* e)
 
 	if(etype == AST_EXPRESSION_LIST)
 	{
-		AstExpressionList* list = static_cast<AstExpressionList*>(e);
-		vector<Expression*> vect = list->get_expressions();
-
-		if(lambIDs.size()+1 < vect.size())
-		{
-			lambAssign.push_back(vect[lambIDs.size()+1]);
-		}
+		vector<Expression*> expList = static_cast<AstExpressionList*>(e)->get_expressions();
 		
-		Type* lambType = eval(vect[0]);
-		return lambType;
+		if(expList.size() == 1)
+			return eval(expList[0]);
+		
+		AstLambda* lambda = static_cast<AstLambda*>(expList[0]);
+		AstIdentifier *id = lambda->get_formal();
+		Expression* lambdaBody = lambda->get_body();
+		Expression* lambdasubbed =  lambdaBody->substitute(id, expList[1]);
+		
+//		Type *typeLambdaBody = eval(    );
+		vector<Expression*> expList2;
+		expList2.push_back(lambdasubbed);
+		for(unsigned int c = 2; c < expList.size(); c++)
+			expList2.push_back(expList[c]);
+		
+
+		
+ 		return eval(AstExpressionList::make(expList2));
 	}
+	
+	
+		// Lambda functions:
+	//   static AstLambda* make(AstIdentifier* formal, Expression* body);
+ //  static AstLambda* make(AstIdentifierList* formal, Expression* body);
+ //  virtual string to_string(int d = 0);
+ //  virtual string to_value();
+ //  Expression* get_body();
+ //  AstIdentifier* get_formal();
+ //  virtual Expression* substitute(Expression* e1,
+ //  	        		  Expression* e2);
+ //  virtual bool operator==(const Expression& other);
+	
 
 	if(etype == AST_LAMBDA)
 	{
 		AstLambda* lambda = static_cast<AstLambda*>(e);
-		lambIDs.push_back(lambda->get_formal());
-		AstIdentifier* temp;
-
-		if(lambda->get_formal()->get_type() == AST_IDENTIFIER)
-		{
-			temp = static_cast<AstIdentifier*>(lambda->get_formal());
-		}
-
-		if(lambAssign.size() > 0 || lambIDs.size() > 0)
-		{
-			Expression* exp = lambAssign.back();
-			sym.add(temp, exp);
-			Type *lambType = eval(lambda->get_body());
-			return lambType;
-		}
-		else
-		{
-			vector<Type*> val;
-			val.push_back(VariableType::make("x"));
-			Type *func = FunctionType::make("Lambda", val);
-			return func;
-		}
+		AstIdentifier *id = lambda->get_formal();
+		Expression* lambdaBody = lambda->get_body();
+		
+		Type *typeId = eval(id);
+		Type *typeLambdaBody = eval(lambdaBody);
+		
+		vector<Type*> v2;
+		v2.push_back(typeId); // ConstantType::make("Int");
+		v2.push_back(typeLambdaBody); // ConstantType::make("String");
+ 		Type* typeLambda = FunctionType::make("lambda", v2);
+ 		return typeLambda;
 	}
 
 	// Binary Operations
@@ -195,6 +206,8 @@ Type* TypeInference::eval(Expression* e)
  
 		if( btype ==  PLUS)   // accepts integers and strings
 		{	
+			cout << "type: " << firstType->to_string() << endl;
+					
 			if(firstType == integer && secondType == integer)
 				return integer;
 			else
@@ -416,51 +429,51 @@ Type* TypeInference::eval(Expression* e)
 
 }
 
-/*TypeInference::TypeInference(Expression * e)
-{
-	this->program = e;
+// TypeInference::TypeInference(Expression * e)
+// {
+// 	this->program = e;
 
-	Type* t1 = ConstantType::make("Int");
-	Type* t2 = ConstantType::make("String");
-	Type* t3 = ConstantType::make("Int");
-	Type* var1 = VariableType::make("x");
-	cout << t1->to_string() << " " << t1 << endl;
-	cout << t2->to_string() << " " << t2 << endl;
-	cout << t3->to_string() << " " << t3 << endl;
-	vector<Type*> v1;
-	v1.push_back(var1);
-	v1.push_back(t2);
+// 	Type* t1 = ConstantType::make("Int");
+// 	Type* t2 = ConstantType::make("String");
+// 	Type* t3 = ConstantType::make("Int");
+// 	Type* var1 = VariableType::make("x");
+// 	cout << t1->to_string() << " " << t1 << endl;
+// 	cout << t2->to_string() << " " << t2 << endl;
+// 	cout << t3->to_string() << " " << t3 << endl;
+// 	vector<Type*> v1;
+// 	v1.push_back(var1); // VariableType::make("x");
+// 	v1.push_back(t2); //  ConstantType::make("String");
+// 	v1.push_back(ConstantType::make("Nil"));
+// 	vector<Type*> v2;
+// 	v2.push_back(t3); // ConstantType::make("Int");
+// 	v2.push_back(t2); // ConstantType::make("String");
+ 
+// 	Type* t4 = FunctionType::make("fun", v1);
+// 	Type* t5 = FunctionType::make("fun", v2);
+// 	cout << t4->to_string() << " " << t4 << endl;
+// 	cout << t5->to_string() << " " << t5 << endl;
 
-	vector<Type*> v2;
-	v2.push_back(t3);
-	v2.push_back(t2);
+// 	//prints all types & reps in table
+// 	Type::print_all_types();
 
-	Type* t4 = FunctionType::make("fun", v1);
-	Type* t5 = FunctionType::make("fun", v2);
-	cout << t4->to_string() << " " << t4 << endl;
-	cout << t5->to_string() << " " << t5 << endl;
+// 	{
+// 		Type* t1 = t4;
+// 		Type* t2 = t5;
 
-	//prints all types & reps in table
-	Type::print_all_types();
+// 		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
+// 		cout <<	"Type 2:" << t2->to_string() << "Rep: " << t2->find()->to_string() << endl;
 
-	{
-		Type* t1 = t4;
-		Type* t2 = t5;
+// 		cout << "unify: " << t1->unify(t2) << endl;
 
-		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
-		cout <<	"Type 2:" << t2->to_string() << "Rep: " << t2->find()->to_string() << endl;
-
-		cout << "unify: " << t1->unify(t2) << endl;
-
-		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
-		cout <<	"Type 2:" << t2->to_string() << "Rep: " << t2->find()->to_string() << endl;
-	}
-		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
-		cout <<	"Type 2:" << var1->to_string() << "Rep: " << var1->find()->to_string() << endl;
-
-
-	Type::print_all_types();
+// 		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
+// 		cout <<	"Type 2:" << t2->to_string() << "Rep: " << t2->find()->to_string() << endl;
+// 	}
+// 		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
+// 		cout <<	"Type 2:" << var1->to_string() << "Rep: " << var1->find()->to_string() << endl;
 
 
+// 	Type::print_all_types();
 
-}*/
+
+
+// }
