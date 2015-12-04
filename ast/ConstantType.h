@@ -28,8 +28,8 @@ Type *headType;
 Type *tailType;
 // struct node *headInfo;
 // struct node *tailInfo;    
-Expression *head;
-Expression *tail;
+Expression *head = NULL;
+Expression *tail = NULL;
 };
 
 	struct node *listInfo;

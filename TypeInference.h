@@ -12,6 +12,7 @@ class TypeInference {
 private:
 	Expression* program;
 	Type* eval(Expression* e);
+	Type* eval(Expression* e, AstIdentifier *ide);
 public:
 	TypeInference(Expression* p);
 

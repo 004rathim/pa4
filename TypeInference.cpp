@@ -5,11 +5,13 @@
 #include "ast/expression.h"
 #include "TypeInference.h"
 #include <stdlib.h>
+#include <stdio.h>
+#include <map>
 
 SymbolTable sym;
 vector<Expression*> lambIDs;
 vector<Expression*> lambAssign;
-
+std::map<AstIdentifier*,Type*> functionReturnTypes;
 TypeInference::TypeInference(Expression* e)
 {
 	this->program = e;
@@ -18,50 +20,14 @@ TypeInference::TypeInference(Expression* e)
 	sym.push();	
 	Type* value = eval(program);
 	cout << value->to_string() << endl;
-
 }
-
-//  enum expression_type {AST_BINOP*,  AST_IDENTIFIER*,
-//  AST_INT*, AST_LAMBDA*, AST_LET*, AST_STRING*, AST_IDENTIFIER_LIST,
-//  AST_EXPRESSION_LIST*, AST_BRANCH*, AST_NIL*, AST_LIST*, AST_UNOP*, AST_READ*};
-
-
-// Ast Nodes:
-// AstBinOp
-//      case PLUS: return "+";  **DONE
-//      case MINUS: return "-"; **DONE
-//      case TIMES: return "*"; **DONE
-//      case DIVIDE: return "/";**DONE
-//      case AND: return "&"; **DONE
-//      case OR: return "|"; **DONE
-//      case EQ: return "="; **DONE
-//      case NEQ: return "<>"; **DONE
-//      case LT: return "<"; **DONE
-//      case LEQ: return "<="; **DONE
-//      case GT: return ">"; **DONE
-//      case GEQ: return ">="; **DONE
-//      case CONS: return "@"; **DONE
-// AstBranch **DONE
-// AstExpressionList 
-// AstIdentifierE **DONE
-// AstIdentifierList
-// AstLet 
-// AstLambda **DONE
-// AstInt **DONE
-// AstList**DONE
-// AstNil**DONE
-// AstRead**DONE
-// AstString**DONE
-// AstUnOp
-//		case !:**DONE
-//		case #:**DONE
-//		case IsNil:**DONE
-//		case print:**DONE
-// Expression
 
 Type* TypeInference::eval(Expression* e)
 {
-//TODO: need to look over my use of sym push and pop
+	return eval(e, NULL);
+}
+Type* TypeInference::eval(Expression* e, AstIdentifier* astIdentifierParameter)
+{
 	ConstantType *integer =  ConstantType::make("Int");
 	ConstantType *string =  ConstantType::make("String");
 	ConstantType *list =  ConstantType::make("List");
@@ -69,30 +35,30 @@ Type* TypeInference::eval(Expression* e)
 	ConstantType *lambda = ConstantType::make("Lambda");
 	expression_type etype = e->get_type();
 	
-
 	// Base Cases
-	if(etype == AST_NIL)
+	if(etype == AST_NIL)	// If expression is nil return nil
 	{
 		return nil; 
 	}
-	if(etype == AST_INT){
+	if(etype == AST_INT){	// If expression is int return int
 		return integer;
 	}
-	if(etype == AST_STRING){
+	if(etype == AST_STRING){	// If expression is string return string
 		return string;
 	}
+	
 	if(etype == AST_IDENTIFIER){
 		AstIdentifier* t = static_cast<AstIdentifier*>(e);
-		Expression* id = sym.find(t);
-		if(id != NULL)
+		Expression* id = sym.find(t);	// Loop up the value of the identifier from the symbol table
+		if(id != NULL)					// If it is on the table then evaluate it 
 		{
-			Type* idType = eval(id);
+			Type* idType = eval(id, astIdentifierParameter);
 			return idType;
 		}
-		return VariableType::make(t->to_string().substr(0, t->to_string().size()-1) );
+		return VariableType::make(t->to_string().substr(0, t->to_string().size()-1) );	// If not on the table make a new variable type
 	}
 
-	if(etype == AST_READ)
+	if(etype == AST_READ)			// READ_INT returns integer, READ_STRING returns string
 	{
 		AstRead *r = static_cast<AstRead*>(e);
 		if(r->read_integer())
@@ -101,147 +67,115 @@ Type* TypeInference::eval(Expression* e)
 			return string;
 	}
 
-
-
-
-	if(etype == AST_LET)
+	if(etype == AST_LET)			
 	{
 		AstLet *let = static_cast<AstLet*>(e);
-		AstIdentifier *id = let->get_id();
-		Expression *val = let->get_val();
-		Expression *body = let->get_body();
+		AstIdentifier *id = let->get_id();			// Get the identifier of let
+		Expression *val = let->get_val();			// Get the value of let
+		Expression *body = let->get_body();			// Get body of the let
 		
-		sym.push();
+		Type *letIdType = eval(val, astIdentifierParameter);
 
-		Type *letIdType = eval(val);
-		if(letIdType == integer)
+		if(letIdType == integer)		// add identifier and its type to the symbol table
 		{
 			AstInt* temp = AstInt::make(1);
 			sym.add(id, temp);
 		}
 		else
-		if(letIdType == string)
+		if(letIdType == string)			// add identifier and its type to the symbol table
 		{
 			AstString* temp = AstString::make("1");
 			sym.add(id, temp);
 		}
 		else
-		if(letIdType == list)
+		if(letIdType == list)			// add identifier and its type to the symbol table
 		{
 			ConstantType *temp = static_cast<ConstantType*> (letIdType);
 			AstList* tempList = static_cast<AstList*> (AstList::make(temp->listInfo->head, temp->listInfo->tail) );
 			sym.add(id, tempList);
 		}
 		else
-		if(letIdType == lambda)
+		if(letIdType == lambda)			// add Lambda expression to the symbol table
 		{
 			ConstantType *temp = static_cast<ConstantType*> (letIdType); 
 			AstLambda* tempLambda = AstLambda::make(  temp->formal , temp->body );
 			sym.add(id, tempLambda);
 		}
 		else
-		if(letIdType == nil)
+		if(letIdType == nil)			// // add identifier and its type to the symbol table
 		{
 			AstNil* temp = AstNil::make();
 			sym.add(id, temp);
 		} 
 		else
-			assert(false);
-	//sym.pop();
-		Type *letBodyType = eval(body);
+			assert(false);				// Something went wrong
+
+		Type *letBodyType = eval(body, astIdentifierParameter);
 		
 
-		return letBodyType;
-		
+		return letBodyType;	
 	}
-
-	if(etype == AST_EXPRESSION_LIST)
+	
+if(etype == AST_EXPRESSION_LIST)		// evaluate applications
 	{
 		vector<Expression*> expList = static_cast<AstExpressionList*>(e)->get_expressions();
 		
-		if(expList.size() == 1)
-			return eval(expList[0]);
-		
+		if(expList.size() == 1)			// Base case: if exp list has one element evaluate it
+			return eval(expList[0], astIdentifierParameter);
+		AstIdentifier *functionID = NULL;		// initial value (NULL) of function id, if it is not NULL then we are trying to find the function's type
 		AstLambda* lambda;
-		if(expList[0] -> get_type() == AST_IDENTIFIER)
-			lambda = static_cast<AstLambda*>(sym.find(static_cast<AstIdentifier*>(expList[0]) ));
+		if(expList[0] -> get_type() == AST_IDENTIFIER)		// if first element is identifier, it is either function or let&lambda 
+		{
+			functionID = static_cast<AstIdentifier*>(expList[0]);			// get the function id if available
+			if( functionReturnTypes.find(functionID) != functionReturnTypes.end() )	// if it is in the map, retrieve its value
+	 		{	
+	 			ConstantType* functionType = static_cast<ConstantType*>(functionReturnTypes.find(functionID)->second);
+	 			return functionType;
+	 		}
+ 			lambda = static_cast<AstLambda*>(sym.find(static_cast<AstIdentifier*>(expList[0]) ));	// if it is not in the function->type map, then look up it on symbol table for let lambda expression
+		}
 		else		
-			lambda = static_cast<AstLambda*>(expList[0]);
-		
-			 
-		AstIdentifier *id = lambda->get_formal();
+			lambda = static_cast<AstLambda*>(expList[0]);		// otherwise it is a lambda expression application
+ 		
+ 		AstIdentifier *id = lambda->get_formal();					// get lambda id and body
 		Expression* lambdaBody = lambda->get_body();
-		Expression* lambdasubbed =  lambdaBody->substitute(id, expList[1]);
-		
-//		Type *typeLambdaBody = eval(    );
+		Expression* lambdasubbed =  lambdaBody->substitute(id, expList[1]);	// substitute value with the identifier Exp[x/var]
+
 		vector<Expression*> expList2;
-		expList2.push_back(lambdasubbed);
+		expList2.push_back(lambdasubbed);									// push substituted lambda application to a new expression list 
 		for(unsigned int c = 2; c < expList.size(); c++)
-			expList2.push_back(expList[c]);
-		
-
-		
- 		return eval(AstExpressionList::make(expList2));
+			expList2.push_back(expList[c]);									// push rest of the elements to the list
+ 		return eval(AstExpressionList::make(expList2), functionID);			// evaluate the expression
 	}
-	
-	
-		// Lambda functions:
-	//   static AstLambda* make(AstIdentifier* formal, Expression* body);
- //  static AstLambda* make(AstIdentifierList* formal, Expression* body);
- //  virtual string to_string(int d = 0);
- //  virtual string to_value();
- //  Expression* get_body();
- //  AstIdentifier* get_formal();
- //  virtual Expression* substitute(Expression* e1,
- //  	        		  Expression* e2);
- //  virtual bool operator==(const Expression& other);
-	
 
-	if(etype == AST_LAMBDA)
+	if(etype == AST_LAMBDA)				// Lambda evaluates to Constant Type Lambda, if it is not an application do not evaluate the body
 	{
 		AstLambda* lambda2 = static_cast<AstLambda*>(e);
 		lambda->formal = lambda2->get_formal();
 		lambda->body = lambda2->get_body();
 		
 		return lambda;
-		
-		//
-		// AstLambda* lambda = static_cast<AstLambda*>(e);
-		// AstIdentifier *id = lambda->get_formal();
-		// Expression* lambdaBody = lambda->get_body();
-		
-		// Type *typeId = eval(id);
-		// Type *typeLambdaBody = eval(lambdaBody);
-		
-		// vector<Type*> v2;
-		// v2.push_back(typeId); // ConstantType::make("Int");
-		// v2.push_back(typeLambdaBody); // ConstantType::make("String");
- 	// 	Type* typeLambda = FunctionType::make("lambda", v2);
- 	// 	return typeLambda;
 	}
 
 	// Binary Operations
 	if(etype == AST_BINOP)
 	{
-		AstBinOp *bin = static_cast<AstBinOp*>(e);
+		AstBinOp *bin = static_cast<AstBinOp*>(e);			// Get binop type, first and second expressions
 		binop_type btype = bin->get_binop_type();
 		Expression *first = bin->get_first();
-		Type *firstType = eval(first);
+		Type *firstType = eval(first,astIdentifierParameter);
 		Expression *second = bin->get_second();
-		Type *secondType = eval(second);
-		cout << "first: " <<  first->to_string() << " second: " << second->to_string() << endl;
+		Type *secondType = eval(second, astIdentifierParameter);
  
 		if( btype ==  PLUS)   // accepts integers and strings
-		{	
-		//	cout << "type: " << firstType->to_string() << endl;
-					
+		{					
 			if(firstType == integer && secondType == integer)
 				return integer;
 			else
 			if(firstType == string && secondType == string)
 				return string;
 			else
-				assert(btype !=  PLUS);
+				assert(btype !=  PLUS);		
 		}
 		else
 		if( btype ==  MINUS) // accepts only integers
@@ -338,169 +272,75 @@ Type* TypeInference::eval(Expression* e)
 				assert(btype !=  GEQ);
 		}
 		else
-		if( btype ==  CONS) // accepts only integers (and strings? -MR)
+		if( btype ==  CONS) // accepts integer, strings and lists -- WE ALLOW POLYMORPHIC LISTS !!! :)
 		{				
-			list->listInfo = new ConstantType::node; //TODO: when to delete?
-			list->listInfo->head = bin->get_first();
-			//cout << "insode cons, head: " << list->listInfo->head->to_string() << endl;
-			list->listInfo->tail = bin->get_second();
+			list->listInfo = new ConstantType::node; // allocate memory for the list data structure 
+			list->listInfo->head = bin->get_first();	// get head of the list and store it
+			list->listInfo->tail = bin->get_second();	// get tail of the list and store it
 			
-			cout << "making a new list head: " << list->listInfo->head->to_string() << " tail: " << list->listInfo->tail->to_string() << endl;
-			if(secondType == nil)
+			if(secondType == nil)	// if second element is nil (2@nil) return the first element
 				return firstType;
-			return list;
+			return list;		
 		}
-
 	}
 	
 	// Unary Operations
 	if(etype == AST_UNOP)
 	{	
-		AstUnOp *un = static_cast<AstUnOp*>(e);
+		AstUnOp *un = static_cast<AstUnOp*>(e);				// get the type and expression of unop
 		unop_type utype = un->get_unop_type();
 		Expression *exp = un->get_expression();
-		Type *type = eval(exp);
+		Type *type = eval(exp,astIdentifierParameter);
 
-		if(utype == ISNIL)
+		if(utype == ISNIL)									// isnil returns an integer
 		{
 			return integer;
 		}
 		else
-		if(utype == PRINT)
+		if(utype == PRINT)									// print returns an integer
 		{
 			return integer;
 		}
 		else
-		if(utype == HD)
+		if(utype == HD)										// get head of a list
 		{
-			if(type != list)
+			if(type != list)	// if ! operation used anything other than list return itself
 				return type;
 			
-			ConstantType *tempList = static_cast<ConstantType*>(type);
-			cout << "will get head of this expression: " << exp->to_string() << endl; 
-			cout << "head: " << tempList->listInfo->head->to_string() << endl;
-			
-			return eval(tempList->listInfo->head);
-		//	else
-		//		assert(utype != HD);
+			ConstantType *tempList = static_cast<ConstantType*>(type);	
+			return eval(tempList->listInfo->head, astIdentifierParameter);	// return head of the list
 		}
 		else
-		if(utype == TL)
+		if(utype == TL)				// get tail of a list
 		{
-			if(type != list)
+			if(type != list)		// if # operation used anything other than list return nil 
 				return nil;
-			
-			ConstantType *tempList = static_cast<ConstantType*>(type);
-			
-			 //Type *tailType = tempList->listInfo->tailType;
-			
-		//	cout << exp->to_string() << endl;
-						
-		//	if(tailType == integer || tailType == string)
-		//	{
-		//		return tailType;
-		//	}
-		//	else
-		//	{
-			//	ConstantType *tailList = ConstantType::make("List");
-			//	cout << "test" << endl;
-			//	tailList->listInfo = tempList->listInfo->tailInfo;	
-			return eval(tempList->listInfo->tail);
-		//	}
-			
-			/*ConstantType *tempList = static_cast<ConstantType*>(type);
-			
-			cout << "unop exp: " << exp->to_string() << endl;
-			
-			if(type == listInteger || type == listString)
-			{
-				//TODO: get_tl returning wrong value
-				// AstList* list = static_cast<AstList*>(exp);
-				// Expression* listTail = list->get_tl();
-				// cout << listTail->to_value() << endl;
-				// Type* tailType = eval(listTail);
-				// return tailType;
-				// if(tempList->tail == false)
-				// 	return type == listInteger ? integer : string;
-				// if(tempList->tail == true)
-				// 	return type == listInteger ? listInteger : listString;
-			}
-			else
-			if(type == integer || type == string)
-			{
-				return eval(AstNil::make()); 
-			}
-			else
-				assert(utype != TL);*/
+	
+			ConstantType *tempList = static_cast<ConstantType*>(type);		
+			return eval(tempList->listInfo->tail,astIdentifierParameter);	// return tail of the list
 		}
-
 	}
 	
 	// Conditional
 	if( etype == AST_BRANCH)
 	{
 		AstBranch *conditional = static_cast<AstBranch*>(e);
-		Type *predicate = eval(conditional->get_pred());
+		Type *predicate = eval(conditional->get_pred(), astIdentifierParameter);
 		
 		if(predicate != integer) // predicate can only be an integer
 			assert(predicate == integer);
-		
-		Type *exp1 = eval(conditional->get_then_exp());
-		Type *exp2 = eval(conditional->get_else_exp());
 
+		Type *exp1 = eval(conditional->get_then_exp(), astIdentifierParameter);
+		if(exp1 == nil)		// then and else should be the same type
+			assert(exp1 != nil);
+
+		if(astIdentifierParameter != NULL &&  functionReturnTypes.find(astIdentifierParameter) == functionReturnTypes.end() ) // 
+			functionReturnTypes.insert(std::make_pair(astIdentifierParameter, exp1)); 		
+		Type *exp2 = eval(conditional->get_else_exp(), astIdentifierParameter);
+		
 		if(exp1 != exp2)		// then and else should be same type
 			assert(exp1 == exp2);
 		
 		return exp1;
 	}
-
 }
-
-// TypeInference::TypeInference(Expression * e)
-// {
-// 	this->program = e;
-
-// 	Type* t1 = ConstantType::make("Int");
-// 	Type* t2 = ConstantType::make("String");
-// 	Type* t3 = ConstantType::make("Int");
-// 	Type* var1 = VariableType::make("x");
-// 	cout << t1->to_string() << " " << t1 << endl;
-// 	cout << t2->to_string() << " " << t2 << endl;
-// 	cout << t3->to_string() << " " << t3 << endl;
-// 	vector<Type*> v1;
-// 	v1.push_back(var1); // VariableType::make("x");
-// 	v1.push_back(t2); //  ConstantType::make("String");
-// 	v1.push_back(ConstantType::make("Nil"));
-// 	vector<Type*> v2;
-// 	v2.push_back(t3); // ConstantType::make("Int");
-// 	v2.push_back(t2); // ConstantType::make("String");
- 
-// 	Type* t4 = FunctionType::make("fun", v1);
-// 	Type* t5 = FunctionType::make("fun", v2);
-// 	cout << t4->to_string() << " " << t4 << endl;
-// 	cout << t5->to_string() << " " << t5 << endl;
-
-// 	//prints all types & reps in table
-// 	Type::print_all_types();
-
-// 	{
-// 		Type* t1 = t4;
-// 		Type* t2 = t5;
-
-// 		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
-// 		cout <<	"Type 2:" << t2->to_string() << "Rep: " << t2->find()->to_string() << endl;
-
-// 		cout << "unify: " << t1->unify(t2) << endl;
-
-// 		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
-// 		cout <<	"Type 2:" << t2->to_string() << "Rep: " << t2->find()->to_string() << endl;
-// 	}
-// 		cout << "Type 1:" << t1->to_string() << "Rep: " << t1->find()->to_string() << endl;
-// 		cout <<	"Type 2:" << var1->to_string() << "Rep: " << var1->find()->to_string() << endl;
-
-
-// 	Type::print_all_types();
-
-
-
-// }
