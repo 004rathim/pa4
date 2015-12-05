@@ -22,11 +22,11 @@ TypeInference::TypeInference(Expression* e)
 	cout << value->to_string() << endl;
 }
 
-Type* TypeInference::eval(Expression* e)
+Type* TypeInference::eval(Expression* e)	// eval function is overloaded to store function types
 {
 	return eval(e, NULL);
 }
-Type* TypeInference::eval(Expression* e, AstIdentifier* astIdentifierParameter)
+Type* TypeInference::eval(Expression* e, AstIdentifier* astIdentifierParameter) // the second parameter is the function identifier, we understandd
 {
 	ConstantType *integer =  ConstantType::make("Int");
 	ConstantType *string =  ConstantType::make("String");
